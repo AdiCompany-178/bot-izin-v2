@@ -52,7 +52,7 @@ def handle_message(message):
         if durasi <= batas:
             bot.reply_to(message, f"✅ {jenis.title()} oleh {nama} selesai dalam {durasi} menit. Tepat waktu.")
         else:
-            bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.
+bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.\nSanksi: $20")
 Sanksi: $20")
 
         del izin_log[message.reply_to_message.message_id]
