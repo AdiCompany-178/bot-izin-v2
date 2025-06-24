@@ -1,1 +1,1 @@
-web: python bot_izin.py
+python bot_izin.py
