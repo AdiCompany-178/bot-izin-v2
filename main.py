@@ -1,9 +1,11 @@
-import telebot
-from datetime import datetime
 import os
+import telebot
 
 API_TOKEN = os.getenv("API_TOKEN")
+print(f"API_TOKEN = {API_TOKEN}")  # 👈 debug print
+
 bot = telebot.TeleBot(API_TOKEN)
+
 
 # Aturan waktu maksimum (dalam menit)
 IZIN_BATAS = {
