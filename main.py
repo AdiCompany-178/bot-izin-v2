@@ -2,9 +2,15 @@ import os
 import telebot
 
 API_TOKEN = os.getenv("API_TOKEN")
-print(f"API_TOKEN = {API_TOKEN}")  # 👈 debug print
+print(f"API_TOKEN = {API_TOKEN}")  # debug print
 
 bot = telebot.TeleBot(API_TOKEN)
+
+@bot.message_handler(func=lambda m: True)
+def echo_all(message):
+    bot.reply_to(message, "Tes bot nyala bro!")
+
+bot.polling()
 
 # Aturan waktu maksimum (dalam menit)
 IZIN_BATAS = {
