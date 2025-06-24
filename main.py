@@ -1,16 +1,11 @@
 import os
 import telebot
+from datetime import datetime
 
 API_TOKEN = os.getenv("API_TOKEN")
 print(f"API_TOKEN = {API_TOKEN}")  # debug print
 
 bot = telebot.TeleBot(API_TOKEN)
-
-@bot.message_handler(func=lambda m: True)
-def echo_all(message):
-    bot.reply_to(message, "Tes bot nyala bro!")
-
-bot.polling()
 
 # Aturan waktu maksimum (dalam menit)
 IZIN_BATAS = {
@@ -44,7 +39,6 @@ def handle_message(message):
             "nama": message.from_user.first_name
         }
         bot.reply_to(message, f"{jenis_izin.title()} dicatat. Silakan kembali tepat waktu.")
-
     # Jika ini balasan ke pesan izin
     elif message.reply_to_message and message.reply_to_message.message_id in izin_log:
         izin_data = izin_log[message.reply_to_message.message_id]
@@ -62,3 +56,6 @@ def handle_message(message):
             bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}. Sanksi: $20")
 
         del izin_log[message.reply_to_message.message_id]
+
+# INI HARUS PALING BAWAH
+bot.polling(none_stop=True)
