@@ -6,7 +6,6 @@ print(f"API_TOKEN = {API_TOKEN}")  # 👈 debug print
 
 bot = telebot.TeleBot(API_TOKEN)
 
-
 # Aturan waktu maksimum (dalam menit)
 IZIN_BATAS = {
     "izin toilet": 4,
