@@ -56,6 +56,12 @@ def scheduler():
 
 threading.Thread(target=scheduler, daemon=True).start()
 
+def remind_late(chat_id, user_id, jenis, batas, msg_id):
+    time.sleep((batas - 1) * 60)
+    if msg_id in izin_log:
+        user_mention = f"@{izin_log[msg_id]['nama']}"
+        bot.send_message(chat_id, f"⏰ {user_mention} belum kembali dari {jenis.title()}\nBatas waktu {batas} menit segera habis!")
+
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
@@ -95,6 +101,7 @@ def handle_message(message):
             "nama": message.from_user.first_name
         }
         bot.reply_to(message, f"✅ Izin {jenis.title()} dicatat. Balas pesan ini saat kembali.")
+        threading.Thread(target=remind_late, args=(chat_id, user_id, jenis, IZIN_BATAS[jenis], message.message_id), daemon=True).start()
 
     else:
         count = peringatan_user.get(user_id, 0)
