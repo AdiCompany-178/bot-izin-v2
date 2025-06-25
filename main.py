@@ -102,7 +102,7 @@ def handle_message(message):
     else:
         count = peringatan_user.get(user_id, 0)
         if count == 0:
-            bot.reply_to(message, "⚠️ Format izin salah. Gunakan perintah seperti: /izin toilet.\nPeringatan pertama!")
+            bot.reply_to(message, "⚠️ Format izin salah. Gunakan perintah seperti: /izin toilet /izin bab /izin smoking.\nPeringatan pertama!")
             peringatan_user[user_id] = 1
         elif count == 1:
             bot.reply_to(message, f"❌ Izin ditolak. Anda melanggar dua kali.\nSanksi: ${DENDA_PERINGATAN}")
