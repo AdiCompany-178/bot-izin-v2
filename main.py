@@ -28,24 +28,21 @@ user_kena_denda = set()
 izin_aktif = {}  # {user_id: (jenis, waktu_mulai)}
 
 # Fungsi Sheet
-def catat_izin(user_id, nama, jenis):
+def catat_izin(user_id, nama, jenis, waktu):
     SHEET.append_row([
         str(user_id), nama, jenis,
-        datetime.now().isoformat(), "", "", "aktif"
+        waktu.isoformat(), "", "", "aktif"
     ])
 
-def selesaikan_izin(user_id):
+def update_selesai(user_id, waktu_selesai, durasi):
     records = SHEET.get_all_records()
     for i, row in enumerate(records, start=2):
         if row["user_id"] == str(user_id) and row["status"] == "aktif":
-            start = datetime.fromisoformat(row["waktu_mulai"])
-            now_time = datetime.now()
-            durasi = round((now_time - start).total_seconds() / 60, 2)
-            SHEET.update(f"E{i}", now_time.isoformat())
+            SHEET.update(f"E{i}", waktu_selesai.isoformat())
             SHEET.update(f"F{i}", durasi)
             SHEET.update(f"G{i}", "selesai")
-            return row["jenis"], durasi
-    return None, None
+            return row["jenis"]
+    return None
 
 def hitung_total_harian(user_id):
     records = SHEET.get_all_records()
@@ -102,11 +99,22 @@ def handle(message):
     chat_id = message.chat.id
     text = message.text.lower().strip()
 
-    if user_id in izin_aktif:
-        jenis, waktu_mulai = izin_aktif.pop(user_id)
-        durasi = round((datetime.now() - waktu_mulai).total_seconds() / 60, 2)
+    if text.startswith("/izin "):
+        jenis = text.replace("/izin ", "")
+        if jenis not in IZIN_BATAS:
+            bot.reply_to(message, "❌ Jenis izin tidak valid.")
+            return
+        waktu_mulai = datetime.now()
+        izin_aktif[user_id] = (jenis, waktu_mulai)
+        catat_izin(user_id, user.first_name, jenis, waktu_mulai)
+        bot.reply_to(message, f"✅ Izin {jenis.title()} dicatat. Balas pesan ini saat kembali.")
 
-        selesaikan_izin(user_id)
+    elif user_id in izin_aktif:
+        jenis, waktu_mulai = izin_aktif.pop(user_id)
+        sekarang = datetime.now()
+        durasi = round((sekarang - waktu_mulai).total_seconds() / 60, 2)
+        update_selesai(user_id, sekarang, durasi)
+
         batas = IZIN_BATAS[jenis]
         total = hitung_total_harian(user_id)
 
@@ -118,16 +126,6 @@ def handle(message):
         if total > BATAS_HARIAN and user_id not in user_kena_denda:
             bot.send_message(chat_id, f"⚠️ Total izin harian kamu {total} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}")
             user_kena_denda.add(user_id)
-
-    elif text.startswith("/izin "):
-        jenis = text.replace("/izin ", "")
-        if jenis not in IZIN_BATAS:
-            bot.reply_to(message, "❌ Jenis izin tidak valid.")
-            return
-        waktu_mulai = datetime.now()
-        izin_aktif[user_id] = (jenis, waktu_mulai)
-        catat_izin(user_id, user.first_name, jenis)
-        bot.reply_to(message, f"✅ Izin {jenis.title()} dicatat. Balas pesan ini saat kembali.")
 
     else:
         bot.reply_to(message, "⚠️ Format salah. Gunakan perintah seperti: /izin toilet")
