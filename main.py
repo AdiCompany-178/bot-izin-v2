@@ -9,9 +9,9 @@ bot = telebot.TeleBot(API_TOKEN)
 
 # Konfigurasi
 IZIN_BATAS = {
-    "toilet": 4,
-    "bab": 15,
-    "smoking": 10
+    "toilet": 4.5,     # 4 menit 30 detik
+    "bab": 16,         # 16 menit
+    "smoking": 10.5    # 10 menit 30 detik
 }
 BATAS_HARIAN = 75  # menit
 DENDA_MELEBIHI_BATAS = 100  # USD
@@ -82,7 +82,7 @@ def handle_message(message):
         if durasi <= batas:
             bot.reply_to(message, f"✅ {jenis.title()} oleh {nama} selesai dalam {durasi} menit. Tepat waktu.")
         else:
-            bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.\nSanksi: $20")
+            bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.\nSanksi: $10")
 
         if harian_durasi[user_id] > BATAS_HARIAN:
             bot.send_message(chat_id, f"⚠️ Total izin harian melebihi {BATAS_HARIAN} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}")
@@ -90,7 +90,7 @@ def handle_message(message):
     elif text.startswith("/izin "):
         jenis = text.replace("/izin ", "")
         if jenis not in IZIN_BATAS:
-            bot.reply_to(message, "❌ Jenis izin tidak valid. Gunakan: /izin toilet, /izin bab, atau /izin smoking.")
+            bot.reply_to(message, "❌ Jenis izin tidak valid. Gunakan: (/izin toilet), (/izin bab), atau (/izin smoking).")
             return
         izin_log[message.message_id] = {
             "user_id": user_id,
@@ -102,7 +102,7 @@ def handle_message(message):
     else:
         count = peringatan_user.get(user_id, 0)
         if count == 0:
-            bot.reply_to(message, "⚠️ Format izin salah. Gunakan perintah seperti: /izin toilet /izin bab /izin smoking.\nPeringatan pertama!")
+            bot.reply_to(message, "⚠️ Format izin salah. Gunakan perintah seperti: (/izin toilet) (/izin bab) (/izin smoking).\nPeringatan pertama!")
             peringatan_user[user_id] = 1
         elif count == 1:
             bot.reply_to(message, f"❌ Izin ditolak. Anda melanggar dua kali.\nSanksi: ${DENDA_PERINGATAN}")
