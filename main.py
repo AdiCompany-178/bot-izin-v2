@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 import telebot
 import threading
@@ -18,16 +18,22 @@ DENDA_MELEBIHI_BATAS = 100  # USD
 DENDA_PERINGATAN = 10  # USD
 jam_rekap = "00:00"
 
-izin_log = {}  # {msg_id: data}
-harian_durasi = {}  # {user_id: total_menit}
-peringatan_user = {}  # {user_id: jumlah_pelanggaran}
-rekap_data = {}  # {group_id: {user_id: total_menit}}
-rekap_nama = {}  # {user_id: nama}
-user_kena_denda = set()  # user_id yang sudah kena denda harian
+izin_log = {}
+harian_durasi = {}
+peringatan_user = {}
+rekap_data = {}
+rekap_nama = {}
+user_kena_denda = set()
 
 # Utilitas
 def now():
     return datetime.now()
+
+def mention_user(user):
+    if user.username:
+        return f"@{user.username}"
+    else:
+        return f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
 
 def reset_harian():
     global harian_durasi, peringatan_user, rekap_data, user_kena_denda
@@ -48,8 +54,8 @@ def kirim_rekap():
                 pesan += f"  ⚠️ Melebihi batas. Sanksi: ${DENDA_MELEBIHI_BATAS}\n"
         try:
             bot.send_message(group_id, pesan, parse_mode="HTML")
-        except:
-            pass
+        except Exception as e:
+            print(f"❌ Gagal kirim rekap: {e}")
 
 def scheduler():
     while True:
@@ -61,14 +67,14 @@ def scheduler():
 
 threading.Thread(target=scheduler, daemon=True).start()
 
-# Handler
+# Handler utama
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
-    user_id = message.from_user.id
+    user = message.from_user
+    user_id = user.id
     chat_id = message.chat.id
     text = message.text.lower().strip()
-    nama_user = message.from_user.first_name
-    rekap_nama[user_id] = nama_user
+    rekap_nama[user_id] = mention_user(user)
 
     if message.reply_to_message:
         izin_data = izin_log.get(message.reply_to_message.message_id)
@@ -92,7 +98,7 @@ def handle_message(message):
             bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.\nSanksi: ${DENDA_PERINGATAN}")
 
         if harian_durasi[user_id] > BATAS_HARIAN and user_id not in user_kena_denda:
-            bot.send_message(chat_id, f"⚠️ Total izin harian melebihi {BATAS_HARIAN} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}")
+            bot.send_message(chat_id, f"⚠️ {rekap_nama[user_id]} melebihi batas izin harian {BATAS_HARIAN} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}", parse_mode="HTML")
             user_kena_denda.add(user_id)
 
     elif text.startswith("/izin "):
@@ -104,7 +110,7 @@ def handle_message(message):
             "user_id": user_id,
             "timestamp": now(),
             "jenis": jenis,
-            "nama": nama_user
+            "nama": mention_user(user)
         }
         bot.reply_to(message, f"✅ Izin {jenis.title()} dicatat. Balas pesan ini saat kembali.")
 
