@@ -9,9 +9,9 @@ bot = telebot.TeleBot(API_TOKEN)
 
 # Konfigurasi
 IZIN_BATAS = {
-    "toilet": 4.5,     # 4 menit 30 detik
-    "bab": 16,         # 16 menit
-    "smoking": 10.5    # 10 menit 30 detik
+    "toilet": 4,
+    "bab": 16,
+    "smoking": 10.5
 }
 BATAS_HARIAN = 75  # menit
 DENDA_MELEBIHI_BATAS = 100  # USD
@@ -22,19 +22,19 @@ izin_log = {}  # {msg_id: data}
 harian_durasi = {}  # {user_id: total_menit}
 peringatan_user = {}  # {user_id: jumlah_pelanggaran}
 rekap_data = {}  # {group_id: {user_id: total_menit}}
+rekap_nama = {}  # {user_id: nama}
+user_kena_denda = set()  # user_id yang sudah kena denda harian
 
 # Utilitas
 def now():
     return datetime.now()
 
-def format_jam(dt):
-    return dt.strftime("%H:%M")
-
 def reset_harian():
-    global harian_durasi, peringatan_user, rekap_data
+    global harian_durasi, peringatan_user, rekap_data, user_kena_denda
     harian_durasi = {}
     peringatan_user = {}
     rekap_data = {}
+    user_kena_denda = set()
 
 def kirim_rekap():
     for group_id, user_data in rekap_data.items():
@@ -42,8 +42,8 @@ def kirim_rekap():
             continue
         pesan = "📊 Rekap Harian Izin:\n"
         for user_id, total in user_data.items():
-            nama = f"<a href='tg://user?id={user_id}'>User</a>"
-            pesan += f"• {nama}: {total} menit\n"
+            nama = rekap_nama.get(user_id, f"<a href='tg://user?id={user_id}'>User</a>")
+            pesan += f"• {nama}: {round(total, 2)} menit\n"
             if total > BATAS_HARIAN:
                 pesan += f"  ⚠️ Melebihi batas. Sanksi: ${DENDA_MELEBIHI_BATAS}\n"
         try:
@@ -61,14 +61,21 @@ def scheduler():
 
 threading.Thread(target=scheduler, daemon=True).start()
 
-# Deteksi izin
+# Handler
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
     chat_id = message.chat.id
     text = message.text.lower().strip()
+    nama_user = message.from_user.first_name
+    rekap_nama[user_id] = nama_user
 
-    if message.reply_to_message and message.reply_to_message.message_id in izin_log:
+    if message.reply_to_message:
+        izin_data = izin_log.get(message.reply_to_message.message_id)
+        if not izin_data:
+            bot.reply_to(message, "⛔ Izin ini sudah diproses atau tidak ditemukan.")
+            return
+
         data = izin_log.pop(message.reply_to_message.message_id)
         durasi = round((now() - data["timestamp"]).total_seconds() / 60, 2)
         jenis = data["jenis"]
@@ -82,27 +89,29 @@ def handle_message(message):
         if durasi <= batas:
             bot.reply_to(message, f"✅ {jenis.title()} oleh {nama} selesai dalam {durasi} menit. Tepat waktu.")
         else:
-            bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.\nSanksi: $10")
+            bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.\nSanksi: ${DENDA_PERINGATAN}")
 
-        if harian_durasi[user_id] > BATAS_HARIAN:
+        if harian_durasi[user_id] > BATAS_HARIAN and user_id not in user_kena_denda:
             bot.send_message(chat_id, f"⚠️ Total izin harian melebihi {BATAS_HARIAN} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}")
+            user_kena_denda.add(user_id)
 
     elif text.startswith("/izin "):
         jenis = text.replace("/izin ", "")
         if jenis not in IZIN_BATAS:
-            bot.reply_to(message, "❌ Jenis izin tidak valid. Gunakan: (/izin toilet), (/izin bab), atau (/izin smoking).")
+            bot.reply_to(message, "❌ Jenis izin tidak valid. Gunakan: /izin toilet, /izin bab, atau /izin smoking.")
             return
         izin_log[message.message_id] = {
             "user_id": user_id,
             "timestamp": now(),
             "jenis": jenis,
-            "nama": message.from_user.first_name
+            "nama": nama_user
         }
         bot.reply_to(message, f"✅ Izin {jenis.title()} dicatat. Balas pesan ini saat kembali.")
+
     else:
         count = peringatan_user.get(user_id, 0)
         if count == 0:
-            bot.reply_to(message, "⚠️ Format izin salah. Gunakan perintah seperti: (/izin toilet) (/izin bab) (/izin smoking).\nPeringatan pertama!")
+            bot.reply_to(message, "⚠️ Format izin salah. Gunakan perintah seperti: /izin toilet, /izin bab, /izin smoking.\nPeringatan pertama!")
             peringatan_user[user_id] = 1
         elif count == 1:
             bot.reply_to(message, f"❌ Izin ditolak. Anda melanggar dua kali.\nSanksi: ${DENDA_PERINGATAN}")
