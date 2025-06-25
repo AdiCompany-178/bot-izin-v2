@@ -4,6 +4,7 @@ import telebot
 import threading
 import time
 import gspread
+import json
 from oauth2client.service_account import ServiceAccountCredentials
 
 API_TOKEN = os.getenv("API_TOKEN")
@@ -12,7 +13,8 @@ bot = telebot.TeleBot(API_TOKEN)
 # Google Sheets Setup
 SHEET_ID = "1MmOTBBSTjaQNsewdzl_7T6PIBLBnEcVIinP0Utzjqoo"
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
+creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS_JSON"))
+CREDS = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
 CLIENT = gspread.authorize(CREDS)
 SHEET = CLIENT.open_by_key(SHEET_ID).sheet1
 
@@ -79,9 +81,8 @@ def kirim_rekap():
         if info['durasi'] > BATAS_HARIAN:
             pesan += f"  ⚠️ Melebihi batas. Sanksi: ${DENDA_MELEBIHI_BATAS}\n"
 
-    # Kirim ke grup (isi dengan ID grup Telegram kamu)
     try:
-        bot.send_message(-1001234567890, pesan)
+        bot.send_message(-1001234567890, pesan)  # Ganti dengan ID grup Telegram kamu
     except Exception as e:
         print("Gagal kirim rekap:", e)
 
@@ -93,7 +94,6 @@ def scheduler():
 
 threading.Thread(target=scheduler, daemon=True).start()
 
-# Bot Handler
 @bot.message_handler(func=lambda m: True)
 def handle(message):
     user = message.from_user
