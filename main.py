@@ -130,4 +130,5 @@ def handle(message):
     else:
         bot.reply_to(message, "⚠️ Format salah. Gunakan perintah seperti: /izin toilet")
 
-bot.polling()
+if __name__ == "__main__":
+    bot.infinity_polling(skip_pending=True)
