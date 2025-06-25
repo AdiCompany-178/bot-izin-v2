@@ -25,7 +25,8 @@ DENDA_MELEBIHI_BATAS = 100
 DENDA_PERINGATAN = 10
 jam_rekap = "00:00"
 user_kena_denda = set()
-izin_aktif = {}  # {user_id: (jenis, waktu_mulai)}
+izin_log = {}  # msg_id: (user_id, jenis, waktu)
+izin_aktif = {}  # user_id: msg_id
 
 # Fungsi Sheet
 def catat_izin(user_id, nama, jenis, waktu):
@@ -80,7 +81,7 @@ def kirim_rekap():
             pesan += f"  ⚠️ Melebihi batas. Sanksi: ${DENDA_MELEBIHI_BATAS}\n"
 
     try:
-        bot.send_message(-1001234567890, pesan)  # Ganti dengan ID grup Telegram kamu
+        bot.send_message(-1001234567890, pesan)
     except Exception as e:
         print("Gagal kirim rekap:", e)
 
@@ -105,23 +106,23 @@ def handle(message):
             bot.reply_to(message, "❌ Jenis izin tidak valid.")
             return
         waktu_mulai = datetime.now()
-        izin_aktif[user_id] = (jenis, waktu_mulai)
+        izin_log[message.message_id] = (user_id, jenis, waktu_mulai)
+        izin_aktif[user_id] = message.message_id
         catat_izin(user_id, user.first_name, jenis, waktu_mulai)
         bot.reply_to(message, f"✅ Izin {jenis.title()} dicatat. Balas pesan ini saat kembali.")
 
-    elif user_id in izin_aktif:
-        jenis, waktu_mulai = izin_aktif.pop(user_id)
-        sekarang = datetime.now()
-        durasi = round((sekarang - waktu_mulai).total_seconds() / 60, 2)
-        update_selesai(user_id, sekarang, durasi)
-
+    elif message.reply_to_message and message.reply_to_message.message_id in izin_log:
+        izin_data = izin_log.pop(message.reply_to_message.message_id)
+        uid, jenis, mulai = izin_data
+        durasi = round((datetime.now() - mulai).total_seconds() / 60, 2)
+        update_selesai(uid, datetime.now(), durasi)
         batas = IZIN_BATAS[jenis]
-        total = hitung_total_harian(user_id)
+        total = hitung_total_harian(uid)
 
         if durasi <= batas:
-            bot.reply_to(message, f"✅ {jenis.title()} selesai dalam {durasi} menit. Tepat waktu.")
+            bot.reply_to(message, f"✅ {jenis.title()} oleh @{user.username or user.first_name} selesai dalam {durasi} menit. Tepat waktu.")
         else:
-            bot.reply_to(message, f"⚠️ Terlambat ({durasi} menit). Batas {batas} menit.\nSanksi: ${DENDA_PERINGATAN}")
+            bot.reply_to(message, f"⚠️ Terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}.\nSanksi: ${DENDA_PERINGATAN}")
 
         if total > BATAS_HARIAN and user_id not in user_kena_denda:
             bot.send_message(chat_id, f"⚠️ Total izin harian kamu {total} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}")
@@ -131,4 +132,4 @@ def handle(message):
         bot.reply_to(message, "⚠️ Format salah. Gunakan perintah seperti: /izin toilet")
 
 if __name__ == "__main__":
-    bot.infinity_polling(skip_pending=True)
+    bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=20, drop_pending_updates=True)
