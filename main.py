@@ -25,6 +25,7 @@ DENDA_MELEBIHI_BATAS = 100
 DENDA_PERINGATAN = 10
 jam_rekap = "00:00"
 user_kena_denda = set()
+izin_aktif = {}  # {user_id: (jenis, waktu_mulai)}
 
 # Fungsi Sheet
 def catat_izin(user_id, nama, jenis):
@@ -101,12 +102,11 @@ def handle(message):
     chat_id = message.chat.id
     text = message.text.lower().strip()
 
-    if message.reply_to_message:
-        jenis, durasi = selesaikan_izin(user_id)
-        if not jenis:
-            bot.reply_to(message, "⛔ Izin tidak ditemukan atau sudah selesai.")
-            return
+    if user_id in izin_aktif:
+        jenis, waktu_mulai = izin_aktif.pop(user_id)
+        durasi = round((datetime.now() - waktu_mulai).total_seconds() / 60, 2)
 
+        selesaikan_izin(user_id)
         batas = IZIN_BATAS[jenis]
         total = hitung_total_harian(user_id)
 
@@ -124,6 +124,8 @@ def handle(message):
         if jenis not in IZIN_BATAS:
             bot.reply_to(message, "❌ Jenis izin tidak valid.")
             return
+        waktu_mulai = datetime.now()
+        izin_aktif[user_id] = (jenis, waktu_mulai)
         catat_izin(user_id, user.first_name, jenis)
         bot.reply_to(message, f"✅ Izin {jenis.title()} dicatat. Balas pesan ini saat kembali.")
 
