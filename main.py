@@ -39,10 +39,7 @@ def dilarang_smoke_now():
         (time(21, 30), time(22, 0)),
         (time(22, 30), time(23, 0))
     ]
-    for start, end in larangan:
-        if start <= sekarang <= end:
-            return True
-    return False
+    return any(start <= sekarang < end for start, end in larangan)
 
 def now():
     return datetime.now()
