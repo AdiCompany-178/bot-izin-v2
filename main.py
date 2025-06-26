@@ -94,7 +94,7 @@ def scheduler():
 threading.Thread(target=scheduler, daemon=True).start()
 
 
-@bot.message_handler(func=lambda m: True)
+@bot.message_handler(func=lambda m: m.text and m.text.strip().startswith("/"))
 def handle_message(message):
     user_id = message.from_user.id
     chat_id = message.chat.id
