@@ -34,6 +34,7 @@ aktif_pimpinan = {}
 
 MAX_PIMPINAN_IZIN = 4
 
+
 def dilarang_smoke_now():
     sekarang = datetime.now().time()
     larangan = [
@@ -51,8 +52,10 @@ def dilarang_smoke_now():
     ]
     return any(start <= sekarang < end for start, end in larangan)
 
+
 def now():
     return datetime.now()
+
 
 def reset_harian():
     global harian_durasi, peringatan_user, rekap_data, denda_otomatis, aktif_smoke, aktif_pimpinan
@@ -62,6 +65,7 @@ def reset_harian():
     denda_otomatis = set()
     aktif_smoke = {}
     aktif_pimpinan = {}
+
 
 def kirim_rekap():
     for group_id, user_data in rekap_data.items():
@@ -78,6 +82,7 @@ def kirim_rekap():
         except:
             pass
 
+
 def scheduler():
     while True:
         if datetime.now().strftime("%H:%M") == jam_rekap:
@@ -85,43 +90,37 @@ def scheduler():
             reset_harian()
         t.sleep(60)
 
+
 threading.Thread(target=scheduler, daemon=True).start()
 
-def reminder_and_sanksi(chat_id, msg_id, user_id, jenis, waktu_mulai, batas):
-    reminder_delay = (waktu_mulai + timedelta(minutes=batas - 1)) - now()
-    if reminder_delay.total_seconds() > 0:
-        t.sleep(reminder_delay.total_seconds())
-        if msg_id in izin_log:
-            mention = f"@{izin_log[msg_id]['username']}" if izin_log[msg_id]['username'] else izin_log[msg_id]['nama']
-            bot.send_message(chat_id, f"⏰ {mention} belum kembali dari {jenis.title()}\nBatas waktu {batas} menit segera habis!")
-
-    sanksi_delay = (waktu_mulai + timedelta(minutes=batas + 5)) - now()
-    if sanksi_delay.total_seconds() > 0:
-        t.sleep(sanksi_delay.total_seconds())
-        if msg_id in izin_log:
-            mention = f"@{izin_log[msg_id]['username']}" if izin_log[msg_id]['username'] else izin_log[msg_id]['nama']
-            bot.send_message(chat_id, f"⛔ {mention} tidak membalas izin {jenis.title()} dalam {batas + 5} menit.\nSanksi: ${DENDA_PERINGATAN}")
-            denda_otomatis.add((chat_id, msg_id))
 
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
     chat_id = message.chat.id
-    text = message.text.strip().lower()
+    text = message.text.strip()
+    lowtext = text.lower()
     username = message.from_user.username
     nama = message.from_user.first_name
     mention = f"@{username}" if username else nama
+
+    if not text.startswith("/"):
+        bot.reply_to(message, "❌ Izin ditolak, silakan perbaiki format dengan menambahkan '/' di depan perintah.")
+        return
 
     if message.reply_to_message:
         ref_id = message.reply_to_message.message_id
         if ref_id not in izin_log:
             return
 
+        if text not in [f"/{i}" for i in range(1, 10)]:
+            return
+
         data = izin_log.pop(ref_id)
         jenis = data['jenis']
         mulai = data['timestamp']
-        durasi = round((now() - mulai).total_seconds() / 60, 2)
         batas = IZIN_BATAS[jenis]
+        durasi = round((now() - mulai).total_seconds() / 60, 2)
 
         harian_durasi[user_id] = harian_durasi.get(user_id, 0) + durasi
         rekap_data.setdefault(chat_id, {})
@@ -129,23 +128,23 @@ def handle_message(message):
 
         if jenis in ["smoke", "smoking"] and chat_id in aktif_smoke:
             aktif_smoke.pop(chat_id, None)
-        elif jenis in ["smoke2", "smoking2", "smoke3", "smoking3", "smoke4", "smoking4"]:
+        elif jenis.startswith("smoke") or jenis.startswith("smoking"):
             aktif_pimpinan[chat_id].discard(user_id)
 
         if durasi <= batas:
             bot.reply_to(message, f"✅ {jenis.title()} oleh {mention} selesai dalam {durasi} menit. Tepat waktu.")
         elif durasi <= batas + 5:
-            bot.reply_to(message, f"⚠️ {mention} terlambat kembali ({durasi} menit). Batas {batas} menit untuk {jenis.title()}\nTerima kasih, Anda tetap terlambat.")
+            bot.reply_to(message, f"⚠️ {mention} terlambat kembali ({durasi} menit). Batas {batas} menit\nTerima kasih, Anda tetap terlambat.")
         else:
-            bot.reply_to(message, f"⛔ {mention} membalas setelah lebih dari {batas + 5} menit.\nSanksi sudah diberikan sebelumnya. Terima kasih.")
+            bot.reply_to(message, f"⛔ {mention} membalas setelah lebih dari {batas + 5} menit.\nSanksi sudah diberikan sebelumnya.")
 
         if harian_durasi[user_id] > BATAS_HARIAN:
             bot.send_message(chat_id, f"⚠️ Total izin harian melebihi {BATAS_HARIAN} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}")
         return
 
-    perintah = text.replace("/", "").split("@")[0]
+    perintah = lowtext[1:]
     if perintah in IZIN_BATAS:
-        if perintah in ["smoking", "smoke"]:
+        if perintah in ["smoke", "smoking"]:
             if dilarang_smoke_now():
                 bot.reply_to(message, "❌ Kamu tidak diizinkan /Smoke sekarang.\n\nDilarang mengajukan /Smoke di:\n• 08:00-08:20\n• 08:55-09:25\n• 10:30-11:00\n• 13:00-13:30\n• 14:30-14:45\n• 15:30-16:00\n• 17:00-17:30\n• 20:00-20:15\n• 20:30-21:00\n• 21:30-22:00\n• 22:30-23:00")
                 return
@@ -171,8 +170,12 @@ def handle_message(message):
             "nama": nama,
             "username": username
         }
+
         batas = IZIN_BATAS[perintah]
-        threading.Thread(target=reminder_and_sanksi, args=(chat_id, message.message_id, user_id, perintah, now(), batas), daemon=True).start()
+        threading.Thread(
+            target=lambda: reminder_and_sanksi(chat_id, message.message_id, user_id, perintah, now(), batas),
+            daemon=True
+        ).start()
         return
 
     count = peringatan_user.get(user_id, 0)
@@ -183,4 +186,22 @@ def handle_message(message):
         bot.reply_to(message, f"❌ Izin ditolak. Anda melanggar dua kali.\nSanksi: ${DENDA_PERINGATAN}")
         peringatan_user[user_id] = 2
 
-bot.infinity_polling(allowed_updates=["message", "edited_message"])
+
+def reminder_and_sanksi(chat_id, msg_id, user_id, jenis, waktu_mulai, batas):
+    reminder_delay = (waktu_mulai + timedelta(minutes=batas - 1)) - now()
+    if reminder_delay.total_seconds() > 0:
+        t.sleep(reminder_delay.total_seconds())
+        if msg_id in izin_log:
+            mention = f"@{izin_log[msg_id]['username']}" if izin_log[msg_id]['username'] else izin_log[msg_id]['nama']
+            bot.send_message(chat_id, f"⏰ {mention} belum kembali dari {jenis.title()}\nBatas waktu {batas} menit segera habis!")
+
+    sanksi_delay = (waktu_mulai + timedelta(minutes=batas + 5)) - now()
+    if sanksi_delay.total_seconds() > 0:
+        t.sleep(sanksi_delay.total_seconds())
+        if msg_id in izin_log:
+            mention = f"@{izin_log[msg_id]['username']}" if izin_log[msg_id]['username'] else izin_log[msg_id]['nama']
+            bot.send_message(chat_id, f"⛔ {mention} tidak membalas izin {jenis.title()} dalam {batas + 5} menit.\nSanksi: ${DENDA_PERINGATAN}")
+            denda_otomatis.add((chat_id, msg_id))
+
+
+bot.infinity_polling()
