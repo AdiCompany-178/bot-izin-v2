@@ -34,7 +34,6 @@ aktif_pimpinan = {}
 
 MAX_PIMPINAN_IZIN = 4
 
-
 def dilarang_smoke_now():
     sekarang = datetime.now().time()
     larangan = [
@@ -52,10 +51,8 @@ def dilarang_smoke_now():
     ]
     return any(start <= sekarang < end for start, end in larangan)
 
-
 def now():
     return datetime.now()
-
 
 def reset_harian():
     global harian_durasi, peringatan_user, rekap_data, denda_otomatis, aktif_smoke, aktif_pimpinan
@@ -65,7 +62,6 @@ def reset_harian():
     denda_otomatis = set()
     aktif_smoke = {}
     aktif_pimpinan = {}
-
 
 def kirim_rekap():
     for group_id, user_data in rekap_data.items():
@@ -82,7 +78,6 @@ def kirim_rekap():
         except:
             pass
 
-
 def scheduler():
     while True:
         if datetime.now().strftime("%H:%M") == jam_rekap:
@@ -90,9 +85,7 @@ def scheduler():
             reset_harian()
         t.sleep(60)
 
-
 threading.Thread(target=scheduler, daemon=True).start()
-
 
 def reminder_and_sanksi(chat_id, msg_id, user_id, jenis, waktu_mulai, batas):
     reminder_delay = (waktu_mulai + timedelta(minutes=batas - 1)) - now()
@@ -109,7 +102,6 @@ def reminder_and_sanksi(chat_id, msg_id, user_id, jenis, waktu_mulai, batas):
             mention = f"@{izin_log[msg_id]['username']}" if izin_log[msg_id]['username'] else izin_log[msg_id]['nama']
             bot.send_message(chat_id, f"⛔ {mention} tidak membalas izin {jenis.title()} dalam {batas + 5} menit.\nSanksi: ${DENDA_PERINGATAN}")
             denda_otomatis.add((chat_id, msg_id))
-
 
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
@@ -151,7 +143,7 @@ def handle_message(message):
             bot.send_message(chat_id, f"⚠️ Total izin harian melebihi {BATAS_HARIAN} menit.\nSanksi: ${DENDA_MELEBIHI_BATAS}")
         return
 
-    perintah = text.replace("/", "")
+    perintah = text.replace("/", "").split("@")[0]
     if perintah in IZIN_BATAS:
         if perintah in ["smoking", "smoke"]:
             if dilarang_smoke_now():
@@ -191,4 +183,4 @@ def handle_message(message):
         bot.reply_to(message, f"❌ Izin ditolak. Anda melanggar dua kali.\nSanksi: ${DENDA_PERINGATAN}")
         peringatan_user[user_id] = 2
 
-bot.infinity_polling()
+bot.infinity_polling(allowed_updates=["message", "edited_message"])
