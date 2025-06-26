@@ -11,7 +11,13 @@ IZIN_BATAS = {
     "toilet": 4.5,
     "bab": 16,
     "smoking": 11,
-    "smoke": 11
+    "smoke": 11,
+    "smoking2": 11,
+    "smoke2": 11,
+    "smoking3": 11,
+    "smoke3": 11,
+    "smoking4": 11,
+    "smoke4": 11
 }
 BATAS_HARIAN = 75
 DENDA_MELEBIHI_BATAS = 100
@@ -23,6 +29,11 @@ harian_durasi = {}
 peringatan_user = {}
 rekap_data = {}
 denda_otomatis = set()
+aktif_smoke = {}
+aktif_pimpinan = {}
+
+MAX_PIMPINAN_IZIN = 4
+
 
 def dilarang_smoke_now():
     sekarang = datetime.now().time()
@@ -41,15 +52,20 @@ def dilarang_smoke_now():
     ]
     return any(start <= sekarang < end for start, end in larangan)
 
+
 def now():
     return datetime.now()
 
+
 def reset_harian():
-    global harian_durasi, peringatan_user, rekap_data, denda_otomatis
+    global harian_durasi, peringatan_user, rekap_data, denda_otomatis, aktif_smoke, aktif_pimpinan
     harian_durasi = {}
     peringatan_user = {}
     rekap_data = {}
     denda_otomatis = set()
+    aktif_smoke = {}
+    aktif_pimpinan = {}
+
 
 def kirim_rekap():
     for group_id, user_data in rekap_data.items():
@@ -66,6 +82,7 @@ def kirim_rekap():
         except:
             pass
 
+
 def scheduler():
     while True:
         if datetime.now().strftime("%H:%M") == jam_rekap:
@@ -73,7 +90,9 @@ def scheduler():
             reset_harian()
         t.sleep(60)
 
+
 threading.Thread(target=scheduler, daemon=True).start()
+
 
 def reminder_and_sanksi(chat_id, msg_id, user_id, jenis, waktu_mulai, batas):
     reminder_delay = (waktu_mulai + timedelta(minutes=batas - 1)) - now()
@@ -90,6 +109,7 @@ def reminder_and_sanksi(chat_id, msg_id, user_id, jenis, waktu_mulai, batas):
             mention = f"@{izin_log[msg_id]['username']}" if izin_log[msg_id]['username'] else izin_log[msg_id]['nama']
             bot.send_message(chat_id, f"⛔ {mention} tidak membalas izin {jenis.title()} dalam {batas + 5} menit.\nSanksi: ${DENDA_PERINGATAN}")
             denda_otomatis.add((chat_id, msg_id))
+
 
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
@@ -115,6 +135,11 @@ def handle_message(message):
         rekap_data.setdefault(chat_id, {})
         rekap_data[chat_id][user_id] = rekap_data[chat_id].get(user_id, 0) + durasi
 
+        if jenis in ["smoke", "smoking"] and chat_id in aktif_smoke:
+            aktif_smoke.pop(chat_id, None)
+        elif jenis in ["smoke2", "smoking2", "smoke3", "smoking3", "smoke4", "smoking4"]:
+            aktif_pimpinan[chat_id].discard(user_id)
+
         if durasi <= batas:
             bot.reply_to(message, f"✅ {jenis.title()} oleh {mention} selesai dalam {durasi} menit. Tepat waktu.")
         elif durasi <= batas + 5:
@@ -127,10 +152,25 @@ def handle_message(message):
         return
 
     perintah = text.replace("/", "")
-    if perintah in ["toilet", "bab", "smoking", "smoke"]:
-        if perintah in ["smoking", "smoke"] and dilarang_smoke_now():
-            bot.reply_to(message, "❌ Kamu tidak diizinkan /Smoke sekarang.\n\nDilarang mengajukan /Smoke di:\n• 08:00-08:20\n• 08:55-09:25\n• 10:30-11:00\n• 13:00-13:30\n• 14:30-14:45\n• 15:30-16:00\n• 17:00-17:30\n• 20:00-20:15\n• 20:30-21:00\n• 21:30-22:00\n• 22:30-23:00")
-            return
+    if perintah in IZIN_BATAS:
+        if perintah in ["smoking", "smoke"]:
+            if dilarang_smoke_now():
+                bot.reply_to(message, "❌ Kamu tidak diizinkan /Smoke sekarang.\n\nDilarang mengajukan /Smoke di:\n• 08:00-08:20\n• 08:55-09:25\n• 10:30-11:00\n• 13:00-13:30\n• 14:30-14:45\n• 15:30-16:00\n• 17:00-17:30\n• 20:00-20:15\n• 20:30-21:00\n• 21:30-22:00\n• 22:30-23:00")
+                return
+            if chat_id in aktif_smoke:
+                bot.reply_to(message, "❌ Sudah ada yang izin merokok. Silakan tunggu giliran.")
+                return
+            aktif_smoke[chat_id] = user_id
+
+        elif perintah in ["smoke2", "smoking2", "smoke3", "smoking3", "smoke4", "smoking4"]:
+            aktif_pimpinan.setdefault(chat_id, set())
+            if len(aktif_pimpinan[chat_id]) >= MAX_PIMPINAN_IZIN:
+                bot.reply_to(message, "❌ Jumlah maksimal pimpinan yang izin telah tercapai. Mohon tunggu.")
+                return
+            aktif_pimpinan[chat_id].add(user_id)
+            bot.reply_to(message, "✅ Pimpinan, diizinkan.")
+        else:
+            bot.reply_to(message, f"✅ Izin {perintah.title()} dicatat. Balas pesan ini saat kembali.")
 
         izin_log[message.message_id] = {
             "user_id": user_id,
@@ -139,7 +179,6 @@ def handle_message(message):
             "nama": nama,
             "username": username
         }
-        bot.reply_to(message, f"✅ Izin {perintah.title()} dicatat. Balas pesan ini saat kembali.")
         batas = IZIN_BATAS[perintah]
         threading.Thread(target=reminder_and_sanksi, args=(chat_id, message.message_id, user_id, perintah, now(), batas), daemon=True).start()
         return
