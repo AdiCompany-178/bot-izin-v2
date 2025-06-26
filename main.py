@@ -7,7 +7,6 @@ import time as t
 API_TOKEN = os.getenv("API_TOKEN")
 bot = telebot.TeleBot(API_TOKEN)
 
-# Konfigurasi batas izin
 IZIN_BATAS = {
     "toilet": 4.5,
     "bab": 16,
@@ -25,19 +24,20 @@ peringatan_user = {}
 rekap_data = {}
 denda_otomatis = set()
 
-# Waktu larangan smoke
 def dilarang_smoke_now():
     sekarang = datetime.now().time()
     larangan = [
-        (time(0, 0), time(8, 25)),
-        (time(0, 0), time(9, 25)),
-        (time(10, 30), time(11, 59)),
-        (time(0, 0), time(13, 30)),
-        (time(15, 30), time(16, 59)),
-        (time(0, 0), time(17, 30)),
-        (time(20, 30), time(21, 59)),
-        (time(0, 0), time(22, 0)),
-        (time(22, 30), time(23, 59)),
+        (time(8, 0), time(8, 20)),
+        (time(8, 55), time(9, 25)),
+        (time(10, 30), time(11, 0)),
+        (time(13, 0), time(13, 30)),
+        (time(14, 30), time(14, 45)),
+        (time(15, 30), time(16, 0)),
+        (time(17, 0), time(17, 30)),
+        (time(20, 0), time(20, 15)),
+        (time(20, 30), time(21, 0)),
+        (time(21, 30), time(22, 0)),
+        (time(22, 30), time(23, 0))
     ]
     for start, end in larangan:
         if start <= sekarang <= end:
@@ -132,7 +132,7 @@ def handle_message(message):
     perintah = text.replace("/", "")
     if perintah in ["toilet", "bab", "smoking", "smoke"]:
         if perintah in ["smoking", "smoke"] and dilarang_smoke_now():
-            bot.reply_to(message, "❌ Kamu tidak diizinkan /Smoke sekarang.\n\nDilarang mengajukan /Smoke di:\n• Sebelum 08:25\n• Sebelum 09:25\n• Sesudah 10:30\n• Sebelum 13:30\n• Sesudah 15:30\n• Sebelum 17:30\n• Sesudah 20:30\n• Sebelum 22:00\n• Sesudah 22:30")
+            bot.reply_to(message, "❌ Kamu tidak diizinkan /Smoke sekarang.\n\nDilarang mengajukan /Smoke di:\n• 08:00-08:20\n• 08:55-09:25\n• 10:30-11:00\n• 13:00-13:30\n• 14:30-14:45\n• 15:30-16:00\n• 17:00-17:30\n• 20:00-20:15\n• 20:30-21:00\n• 21:30-22:00\n• 22:30-23:00")
             return
 
         izin_log[message.message_id] = {
